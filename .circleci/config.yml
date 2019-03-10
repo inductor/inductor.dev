@@ -1,0 +1,27 @@
+version: 2.1
+jobs:
+  test:
+    docker:
+      - image: circleci/node:10.15.2
+    steps:
+      - checkout
+      - run: yarn install
+      - run: yarn test
+  build:
+    docker:
+      - image: circleci/node:10.15.2
+    steps:
+      - checkout
+      - run: yarn install
+      - run: yarn generate
+
+workflows:
+  test-build:
+    jobs:
+      - test
+      - build:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
