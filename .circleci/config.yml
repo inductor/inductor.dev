@@ -30,12 +30,12 @@ jobs:
           paths:
             - ./*
 
-  test:
-    <<: *defaults
-    steps:
-      - attach_workspace:
-          at: ~/aws-rough
-      - run: yarn test
+  # test:
+  #   <<: *defaults
+  #   steps:
+  #     - attach_workspace:
+  #         at: ~/aws-rough
+  #     - run: yarn test
 
   build:
     <<: *defaults
@@ -63,17 +63,17 @@ workflows:
   test-deploy:
     jobs:
       - install
-      - test:
-          requires:
-            - install
+      # - test:
+      #     requires:
+      #       - install
       - build:
           <<: *filter_only_master
           requires:
             - install
-            - test
+            # - test
       - deploy:
           <<: *filter_only_master
           requires:
             - install
-            - test
+            # - test
             - build
