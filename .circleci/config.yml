@@ -1,65 +1,72 @@
-version: 2
+version: 2.1
 
-defaults: &defaults
-  working_directory: ~/aws-rough
-  docker:
-    - image: circleci/python:3.6-jessie-node-browsers
+executors:
+  default:
+    working_directory: ~/project
+    docker:
+      - image: circleci/python:3.7-stretch-node
 
-filter_only_master: &filter_only_master
-  filters:
-    branches:
-      only: master
-
-jobs:
-  install:
-    <<: *defaults
+commands:
+  restore_yarn:
     steps:
-      - checkout
       - restore_cache:
           name: Restore Yarn Package Cache
           keys:
             - yarn-packages-{{ checksum "yarn.lock" }}
-      - run: yarn
+  save_yarn:
+    steps:
       - save_cache:
           name: Save Yarn Package Cache
           key: yarn-packages-{{ checksum "yarn.lock" }}
           paths:
             - ~/.cache/yarn
+
+jobs:
+  install:
+    executor:
+      name: default
+    steps:
+      - checkout
+      - restore_yarn
+      - run: yarn
+      - save_yarn
       - persist_to_workspace:
-          root: ~/aws-rough
+          root: ~/project
           paths:
             - ./*
 
   # test:
-  #   <<: *defaults
+  #   executor:
+  #     name: default
   #   steps:
   #     - attach_workspace:
-  #         at: ~/aws-rough
+  #         at: ~/project
   #     - run: yarn test
 
   build:
-    <<: *defaults
+    executor:
+      name: default
     steps:
       - attach_workspace:
-          at: ~/aws-rough
+          at: ~/project
       - run: yarn generate
       - persist_to_workspace:
-          root: ~/aws-rough
+          root: ~/project
           paths:
             - dist
 
   deploy:
-    <<: *defaults
+    executor:
+      name: default
     steps:
       - attach_workspace:
-          at: ~/aws-rough
+          at: ~/project
       - run: sudo pip install awscli
       - run: aws s3 sync ./dist/ s3://inductor.dev --exact-timestamps --delete --exclude "*" --include "*.html" --cache-control no-store
       - run: aws s3 sync ./dist/ s3://inductor.dev --exact-timestamps --delete --exclude "*" --include "*.js" --cache-control max-age=31536000
       - run: aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
 
 workflows:
-  version: 2
   test-deploy:
     jobs:
       - install
@@ -70,10 +77,17 @@ workflows:
           <<: *filter_only_master
           requires:
             - install
-            # - test
+            # - test  filters:
+          filters:
+            branches:
+              only: master
+
       - deploy:
           <<: *filter_only_master
           requires:
             - install
             # - test
             - build
+          filters:
+            branches:
+              only: master
